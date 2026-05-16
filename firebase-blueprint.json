@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Novel Project",
+      "description": "Main document for a novel project",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Project name" },
+        "worldbuilding": { "type": "string", "description": "Context and world rules" },
+        "writingStyle": { "type": "string", "description": "Narrative style preferences" },
+        "outline": { "type": "string", "description": "General plot outline" },
+        "wordCount": { "type": "number", "description": "Target word count per chapter" },
+        "ownerId": { "type": "string", "description": "UID of the user who owns this project" },
+        "lastModified": { "type": "number", "description": "Last modified timestamp" }
+      },
+      "required": ["name", "ownerId", "lastModified"]
+    },
+    "Character": {
+      "title": "Character",
+      "description": "Details about a character in the project",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "appearance": { "type": "string" },
+        "personality": { "type": "string" },
+        "background": { "type": "string" },
+        "habits": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Chapter": {
+      "title": "Chapter",
+      "description": "A generated chapter of the novel",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "isFinal": { "type": "boolean", "description": "Whether this chapter is formally included in the novel" }
+      },
+      "required": ["content", "timestamp"]
+    },
+    "Environment": {
+      "title": "Location/Environment",
+      "description": "Details about a location or setting in the novel",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "atmosphere": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "projects/{projectId}": {
+      "schema": "Project",
+      "description": "Collection of all projects"
+    },
+    "projects/{projectId}/characters/{characterId}": {
+      "schema": "Character",
+      "description": "Characters belonging to a project"
+    },
+    "projects/{projectId}/environments/{environmentId}": {
+      "schema": "Environment",
+      "description": "Environments/Locations belonging to a project"
+    },
+    "projects/{projectId}/chapters/{chapterId}": {
+      "schema": "Chapter",
+      "description": "Chapters belonging to a project"
+    }
+  }
+}

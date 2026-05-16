@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Projects ---
+    match /projects/{projectId} {
+      function isValidProject(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               (data.worldbuilding == null || (data.worldbuilding is string && data.worldbuilding.size() <= 10000)) &&
+               (data.writingStyle == null || (data.writingStyle is string && data.writingStyle.size() <= 5000)) &&
+               (data.outline == null || (data.outline is string && data.outline.size() <= 10000)) &&
+               data.wordCount is number &&
+               data.ownerId == request.auth.uid &&
+               data.lastModified is number;
+      }
+
+      allow get: if isVerified() && existing().ownerId == request.auth.uid;
+      allow list: if isVerified() && resource.data.ownerId == request.auth.uid;
+      
+      allow create: if isVerified() && 
+                    isValidId(projectId) && 
+                    isValidProject(incoming()) &&
+                    incoming().keys().hasAll(['name', 'ownerId', 'lastModified']) &&
+                    incoming().keys().size() >= 3; // Allowing optional fields
+
+      allow update: if isVerified() && 
+                    isValidProject(incoming()) &&
+                    incoming().ownerId == existing().ownerId && // Immortal field
+                    (
+                      // Action: General Update
+                      incoming().diff(existing()).affectedKeys().hasAny(['name', 'worldbuilding', 'writingStyle', 'outline', 'wordCount', 'lastModified'])
+                    );
+
+      allow delete: if isVerified() && existing().ownerId == request.auth.uid;
+
+      // --- Characters Subcollection ---
+      match /characters/{characterId} {
+        function isValidCharacter(data) {
+          return data.name is string && data.name.size() <= 100 &&
+                 (data.appearance == null || (data.appearance is string && data.appearance.size() <= 5000)) &&
+                 (data.personality == null || (data.personality is string && data.personality.size() <= 5000)) &&
+                 (data.background == null || (data.background is string && data.background.size() <= 10000)) &&
+                 (data.habits == null || (data.habits is string && data.habits.size() <= 5000));
+        }
+
+        // Relational access: check if user owns the parent project
+        function canAccessProject() {
+          return get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+        }
+
+        allow read: if isVerified() && canAccessProject();
+        
+        allow create: if isVerified() && 
+                      isValidId(characterId) && 
+                      canAccessProject() &&
+                      isValidCharacter(incoming());
+
+        allow update: if isVerified() && 
+                      canAccessProject() &&
+                      isValidCharacter(incoming());
+
+        allow delete: if isVerified() && canAccessProject();
+      }
+
+      // --- Environments Subcollection ---
+      match /environments/{environmentId} {
+        function isValidEnvironment(data) {
+          return data.name is string && data.name.size() <= 100 &&
+                 (data.description == null || (data.description is string && data.description.size() <= 5000)) &&
+                 (data.atmosphere == null || (data.atmosphere is string && data.atmosphere.size() <= 5000)) &&
+                 (data.details == null || (data.details is string && data.details.size() <= 5000));
+        }
+
+        function canAccessProject() {
+          return get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+        }
+
+        allow read: if isVerified() && canAccessProject();
+        
+        allow create: if isVerified() && 
+                      isValidId(environmentId) && 
+                      canAccessProject() &&
+                      isValidEnvironment(incoming());
+
+        allow update: if isVerified() && 
+                      canAccessProject() &&
+                      isValidEnvironment(incoming());
+
+        allow delete: if isVerified() && canAccessProject();
+      }
+
+      // --- Chapters Subcollection ---
+      match /chapters/{chapterId} {
+        function isValidChapter(data) {
+          return (data.title == null || (data.title is string && data.title.size() <= 200)) &&
+                 data.content is string && data.content.size() <= 50000 &&
+                 data.timestamp is number &&
+                 (data.isFinal == null || data.isFinal is bool);
+        }
+
+        function canAccessProject() {
+          return get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+        }
+
+        allow read: if isVerified() && canAccessProject();
+
+        allow create: if isVerified() && 
+                      isValidId(chapterId) && 
+                      canAccessProject() &&
+                      isValidChapter(incoming());
+
+        allow update: if isVerified() && 
+                      canAccessProject() &&
+                      isValidChapter(incoming());
+
+        allow delete: if isVerified() && canAccessProject();
+      }
+    }
+  }
+}
